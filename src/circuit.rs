@@ -17,12 +17,12 @@ impl Circuit {
         }
     }
 
-    pub fn build_subcircuit<F>(&mut self, name: &str, public_nodes: Vec<&str>, build: F)
-        where F: FnOnce(&mut CBuilder)
+    pub fn build_subcircuit<F>(&mut self, name: &str, build: F)
+        where F: FnOnce(&mut CBuilder) -> Interface
     {
         let mut cb = CBuilder::new();
-        build(&mut cb);
-        for node in public_nodes {
+        let interface = build(&mut cb);
+        for node in interface.nodes {
             cb.expose_node(node);
         }
         let sc = cb.finalize();
@@ -210,10 +210,10 @@ impl CBuilder {
         }
     }
 
-    pub fn expose_node(&mut self, name: &str) -> NodeId {
-        let node_id = self.node(NodeSpec::Named(name));
-        self.public_nodes.entry(node_id).or_insert_with(Vec::new).push(String::from(name));
-        node_id
+    pub fn expose_node<T: ToString>(&mut self, name: T) {
+        let name_string = name.to_string();
+        let node_id = self.node_aliases[&name_string];
+        self.public_nodes.entry(node_id).or_insert_with(Vec::new).push(name_string);
     }
 
     pub fn node(&mut self, spec: NodeSpec) -> NodeId {
@@ -328,12 +328,6 @@ impl Subcircuit {
         self.end_step_connections();
     }
 
-    pub fn step(&mut self) {
-        self.start_step();
-        self.update("G");
-        self.end_step();
-    }
-
     fn end_step_connections(&mut self) {
         let num_nodes = self.node_states.len();
         self.connections = vec![Vec::new(); num_nodes];
@@ -377,6 +371,14 @@ mod tests {
 
         fn is_inactive(&self, switch: SwitchId) -> bool {
             !self.switch_positions[switch]
+        }
+
+        pub fn step(&mut self) {
+            self.start_step();
+            if self.name_to_node.contains_key("G") {
+                self.update("G");
+            }
+            self.end_step();
         }
     }
 
@@ -483,8 +485,10 @@ mod tests {
         let g = cb.node(Named("G"));
         let [last_a, last_b] = CBuilder::chain([g, g], 0..5, |[left_a, left_b], i| {
             cb.add_coil(&format!("Bb{}", i), Wire(left_a));
-            let right_a = cb.expose_node(&format!("a{}", i));
-            let right_b = cb.expose_node(&format!("b{}", i));
+            let right_a = cb.node(Named(&format!("a{}", i)));
+            let right_b = cb.node(Named(&format!("b{}", i)));
+            cb.expose_node(format!("a{}", i));
+            cb.expose_node(format!("b{}", i));
             cb.add_switch(
                 &format!("aa{}", i),
                 [Wire(left_a), Wire(right_a), New]);
@@ -517,19 +521,38 @@ mod tests {
     #[test]
     fn basic_circuit() {
         let mut c = Circuit::new();
-        c.build_subcircuit("A", vec!["shared"], |builder| {
+        c.build_subcircuit("A", |builder| {
             builder.node(Named("Aa0"));
+            builder.node(Named("shared"));
+            Interface::new(&["shared"])
         });
 
-        c.build_subcircuit("B", vec!["shared"], |builder| {
+        c.build_subcircuit("B", |builder| {
             builder.node(Named("Ba0"));
             builder.add_switch("dummy", [Named("shared"), Named("G"), Named("G")]);
+            Interface::new(&["shared"])
         });
 
         c.step();
 
         assert!(c.get_subcircuit("A").is_high("shared"));
         assert!(c.get_subcircuit("B").is_high("shared"));
+    }
+}
+
+pub struct Interface {
+    nodes: Vec<String>,
+}
+
+impl Interface {
+    pub fn new<T: ToString>(nodes: &[T]) -> Self {
+        Interface {
+            nodes: nodes.into_iter().map(ToString::to_string).collect(),
+        }
+    }
+
+    pub fn push<T: ToString>(&mut self, node: T) {
+        self.nodes.push(node.to_string());
     }
 }
 

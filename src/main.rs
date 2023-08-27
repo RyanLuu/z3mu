@@ -1,4 +1,4 @@
-use crate::circuit::{Circuit, CBuilder, NodeSpec::*};
+use crate::circuit::{Circuit, CBuilder, NodeSpec::*, Interface};
 
 pub mod circuit;
 
@@ -7,13 +7,17 @@ fn main() {
     let mut c = Circuit::new();
 
     // Figure 4
-    // TODO: Figure out a good way to add Ba{} and Bb{} nodes to public nodes list
-    c.build_subcircuit("Additionswerk", vec!["a60", "b60", "b61", "Br"], |builder| {
+    c.build_subcircuit("Additionswerk", |builder| {
+        let mut interface = Interface::new(&["a60", "b60", "b61", "Br"]);
         for i in -16..=2 {
-            builder.add_coil(&format!("Ba{}", i), New);
+            let coil_name = format!("Ba{}", i);
+            builder.add_coil(&coil_name, New);
+            interface.push(coil_name);
         }
         for i in -16..=1 {
-            builder.add_coil(&format!("Bb{}^1", i), New);
+            let coil_name = format!("Bb{}^1", i);
+            builder.add_coil(&coil_name, New);
+            interface.push(coil_name);
         }
 
         let [_, b2, b1] = builder.add_switch("bs", [Named("I_II_III"), New, New]);
@@ -51,6 +55,7 @@ fn main() {
             builder.add_switch(&format!("bc{}", i), [Wire(s3), Wire(bd_nc), Wire(bd_no)]);
             builder.add_switch(&format!("ba{}", i), [Wire(s3), Wire(bt_nc), New]);
         }
+        interface
     });
     c.step();
 }
