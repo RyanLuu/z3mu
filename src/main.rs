@@ -10,13 +10,11 @@ fn main() {
     // Adds mantissas Ba and Bb and stores the sum in Be
     c.build_subcircuit("Additionswerk (Teil B für Mantisse)", |builder| {
         let mut interface = Interface::new(&["a60", "b60", "b61", "Br"]);
-        for i in -16..=2 {
-            let coil_name = format!("Ba{}", i);
+        for coil_name in (-16..=2).map(|i| format!("Ba{}", i)) {
             builder.add_coil(&coil_name, New);
             interface.push(coil_name);
         }
-        for i in -16..=1 {
-            let coil_name = format!("Bb{}^1", i);
+        for coil_name in (-16..=1).map(|i| format!("Bb{}^1", i)) {
             builder.add_coil(&coil_name, New);
             interface.push(coil_name);
         }
@@ -92,5 +90,6 @@ fn main() {
     });
 
     c.step();
+    c.inspect("Br");
 }
 

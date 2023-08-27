@@ -5,20 +5,31 @@ use log::*;
 #[derive(Default)]
 pub struct Circuit {
     subcircuits: HashMap<SubcircuitId, Subcircuit>,
-    node_rl: HashMap<String, Vec<SubcircuitId>>,
+    nodes: HashMap<String, PublicNode>,
+}
+
+#[derive(Default, Debug)]
+struct PublicNode {
+    state: bool,
+    subcircuits: Vec<SubcircuitId>,
 }
 
 /// Simulates a collection of subcircuits
 impl Circuit {
     pub fn new() -> Self {
-        Circuit {
-            subcircuits: HashMap::new(),
-            node_rl: HashMap::new(),
-        }
+        Circuit::default()
     }
 
-    pub fn build_subcircuit<F>(&mut self, name: &str, build: F)
-        where F: FnOnce(&mut CBuilder) -> Interface
+    pub fn inspect(&self, name: &str) {
+       if let Some(public_node) = self.nodes.get(name) {
+           info!("{}: {}", name, if public_node.state { 1 } else { 0 });
+       } else {
+           warn!("Could not find node \"{}\" to inspect", name);
+       }
+    }
+
+    pub fn build_subcircuit<F>(&mut self, name: &str, build: F) where
+        F: FnOnce(&mut CBuilder) -> Interface
     {
         let mut cb = CBuilder::new();
         let interface = build(&mut cb);
@@ -32,10 +43,10 @@ impl Circuit {
     fn add_subcircuit(&mut self, name: &str, subcircuit: Subcircuit) {
         for (_, node_names) in subcircuit.public_nodes.iter() {
             for node_name in node_names {
-                if !self.node_rl.contains_key(node_name) {
-                    self.node_rl.insert(node_name.clone(), Vec::new());
+                if !self.nodes.contains_key(node_name) {
+                    self.nodes.insert(node_name.clone(), PublicNode::default());
                 }
-                self.node_rl.get_mut(node_name).unwrap().push(String::from(name));
+                self.nodes.get_mut(node_name).unwrap().subcircuits.push(String::from(name));
             }
         }
         self.subcircuits.insert(String::from(name), subcircuit);
@@ -46,15 +57,22 @@ impl Circuit {
     }
 
     pub fn step(&mut self) {
+
+        // reset public node states
+        for (_, public_node) in &mut self.nodes {
+            public_node.state = false;
+        }
+
         let mut worklist = vec![String::from("G")];
         let mut visited = HashSet::<String>::new();
         while let Some(node_name) = worklist.pop() {
             if !visited.insert(node_name.clone()) {
                 continue;
             }
-            debug!("{} {:#?}", node_name, self.node_rl);
-            if let Some(subcircuits) = self.node_rl.get(&node_name) {
-                for scid in subcircuits {
+            debug!("{} {:#?}", node_name, self.nodes);
+            if let Some(public_node) = self.nodes.get_mut(&node_name) {
+                public_node.state = true;
+                for scid in &public_node.subcircuits {
                     let subcircuit = self.subcircuits.get_mut(scid).unwrap();
                     let nodes = subcircuit.update(&node_name);
                     worklist.extend(nodes);
