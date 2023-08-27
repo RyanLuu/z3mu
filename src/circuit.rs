@@ -62,8 +62,6 @@ impl Circuit {
     }
 }
 
-const G: NodeId = 0;
-
 /// A subcircuit in the process of being built
 #[derive(Default)]
 pub struct CBuilder {
@@ -118,7 +116,6 @@ struct Coil {
 }
 
 struct Switch {
-    name: String,
     pole: NodeId,
     no: NodeId,
     nc: NodeId,
@@ -140,7 +137,6 @@ impl CBuilder {
     // TODO: change to From/Into
     fn finalize_switch(bs: BuilderSwitch) -> Switch {
         Switch {
-            name: bs.name,
             pole: bs.pole,
             no: bs.no,
             nc: bs.nc,
@@ -345,6 +341,12 @@ impl Subcircuit {
 #[cfg(test)]
 mod tests {
 
+    impl CBuilder {
+        fn next_switch_id(&self) -> SwitchId {
+            self.switches.len()
+        }
+    }
+
     impl Subcircuit {
         fn is_high(&self, node: &str) -> bool {
             self.node_states[self.name_to_node[node]]
@@ -354,16 +356,12 @@ mod tests {
             !self.node_states[self.name_to_node[node]]
         }
 
-        fn is_active(&self, switch: &str) -> bool {
-            self.switch_positions[self.switch_name_to_id(switch)]
+        fn is_active(&self, switch: SwitchId) -> bool {
+            self.switch_positions[switch]
         }
 
-        fn is_inactive(&self, switch: &str) -> bool {
-            !self.switch_positions[self.switch_name_to_id(switch)]
-        }
-
-        fn switch_name_to_id(&self, name: &str) -> SwitchId {
-            self.switches.iter().position(|s| s.name == name).expect(&format!("Did not find switch named \"{}\"", name))
+        fn is_inactive(&self, switch: SwitchId) -> bool {
+            !self.switch_positions[switch]
         }
     }
 
@@ -380,20 +378,21 @@ mod tests {
     #[test]
     fn one_relay() {
         let mut cb = CBuilder::new();
-        cb.add_coil("Ab0", Wire(G));
-        cb.add_switch("ab0", [Wire(G), Named("no"), Named("nc")]);
+        cb.add_coil("Ab0", Named("G"));
+        let switch_id = cb.next_switch_id();
+        cb.add_switch("ab0", [Named("G"), Named("no"), Named("nc")]);
         cb.expose_node("no");
         cb.expose_node("nc");
         let mut sc = cb.finalize();
-        assert!(sc.is_inactive("ab0"));
+        assert!(sc.is_inactive(switch_id));
         assert!(sc.is_low("no"));
         assert!(sc.is_low("nc"));
         sc.step(); // turn on
-        assert!(sc.is_active("ab0"));
+        assert!(sc.is_active(switch_id));
         assert!(sc.is_low("no"));
         assert!(sc.is_high("nc"));
         sc.step();
-        assert!(sc.is_active("ab0"));
+        assert!(sc.is_active(switch_id));
         assert!(sc.is_high("no"));
         assert!(sc.is_low("nc"));
     }
@@ -401,16 +400,17 @@ mod tests {
     #[test]
     fn oscillating_relay() {
         let mut cb = CBuilder::new();
-        let [_, _, nc] = cb.add_switch("xy-10", [Wire(G), New, Named("coil")]);
+        let switch_id = cb.next_switch_id();
+        let [_, _, nc] = cb.add_switch("xy-10", [Named("G"), New, Named("coil")]);
         cb.add_coil("Xy-10", Wire(nc));
         cb.expose_node("coil");
         let mut sc = cb.finalize();
         sc.step();
         for _ in 0..5 {
-            assert!(sc.is_active("xy-10"));
+            assert!(sc.is_active(switch_id));
             assert!(sc.is_high("coil"));
             sc.step();
-            assert!(sc.is_inactive("xy-10"));
+            assert!(sc.is_inactive(switch_id));
             assert!(sc.is_low("coil"));
             sc.step();
         }
@@ -419,22 +419,22 @@ mod tests {
     #[test]
     fn step_subcircuit() {
         let mut cb = CBuilder::new();
-        cb.add_coil("Init", Wire(G));
+        cb.add_coil("Init", Named("G"));
         for i in 1..=5 {
             cb.add_coil(&format!("S{}", i), Named(&format!("step{}", i)));
             cb.expose_node(&format!("step{}", i));
         }
-        cb.add_switch("init", [Wire(G), New, Named("S1")]);
-        cb.add_switch("s1", [Wire(G), Named("S2"), New]);
-        cb.add_switch("s2", [Wire(G), Named("S3"), New]);
-        cb.add_switch("s3", [Wire(G), Named("S4"), New]);
-        cb.add_switch("s4", [Wire(G), Named("S5"), New]);
-        cb.add_switch("s5", [Wire(G), Named("S1"), New]);
+        cb.add_switch("init", [Named("G"), New, Named("S1")]);
+        cb.add_switch("s1", [Named("G"), Named("S2"), New]);
+        cb.add_switch("s2", [Named("G"), Named("S3"), New]);
+        cb.add_switch("s3", [Named("G"), Named("S4"), New]);
+        cb.add_switch("s4", [Named("G"), Named("S5"), New]);
+        cb.add_switch("s5", [Named("G"), Named("S1"), New]);
 
-        cb.add_switch("init", [Wire(G), New, Named("step123")]);
-        cb.add_switch("s5", [Wire(G), Named("step123"), New]);
-        cb.add_switch("s1", [Wire(G), Named("step123"), New]);
-        cb.add_switch("s2", [Wire(G), Named("step123"), New]);
+        cb.add_switch("init", [Named("G"), New, Named("step123")]);
+        cb.add_switch("s5", [Named("G"), Named("step123"), New]);
+        cb.add_switch("s1", [Named("G"), Named("step123"), New]);
+        cb.add_switch("s2", [Named("G"), Named("step123"), New]);
         cb.expose_node("step123");
         let mut sc = cb.finalize();
 
@@ -472,7 +472,7 @@ mod tests {
 
         c.build_subcircuit("B", vec!["shared"], |builder| {
             builder.add_named_node("Ba0");
-            builder.add_switch("dummy", [Named("shared"), Wire(G), Wire(G)]);
+            builder.add_switch("dummy", [Named("shared"), Named("G"), Named("G")]);
             builder.expose_node("shared");
         });
 
