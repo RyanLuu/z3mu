@@ -8,6 +8,7 @@ pub struct Circuit {
     node_rl: HashMap<String, Vec<SubcircuitId>>,
 }
 
+/// Simulates a collection of subcircuits
 impl Circuit {
     pub fn new() -> Self {
         Circuit {
@@ -44,12 +45,6 @@ impl Circuit {
         self.subcircuits.get(name).unwrap()
     }
 
-// Circuit's step() will do
-// 1. worklist = ["G"], visited = {}
-// 2. while worklist empty, update(wl.pop()) on all SCs with wl.front exposed (if wl.front not visited)
-// 3. add update()'s return values to worklist, add wl.front to visited
-// 4. end_step() all SCs
-// tada
     pub fn step(&mut self) {
         let mut worklist = vec![String::from("G")];
         let mut visited = HashSet::<String>::new();
@@ -93,15 +88,16 @@ struct BuilderCoil {
 
 /// Specifies how to treat a node introduced to the circuit by a new component
 ///
-/// * `Wire(node_id)` - Connect the node to the existing node identified by `node_id`
-/// * `New` - Create a new node in the circuit, connected to nothing
-/// * `Named(name)` - Connect to node named `name` or connect to it if it already exists
+/// * `Wire(node_id)` - Connect to the existing node identified by `node_id`
+/// * `New` - Create a new node in the circuit that is connected to nothing else
+/// * `Named(name)` - Create a new node named `name` or connect to it if it already exists
 pub enum NodeSpec<'a> {
     Wire(NodeId),
     New,
     Named(&'a str),
 }
 
+/// Part of a circuit that may expose some nodes for other subcircuits to connect to
 #[derive(Default)]
 pub struct Subcircuit {
     // construction
