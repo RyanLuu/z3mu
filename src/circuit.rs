@@ -125,6 +125,18 @@ type SubcircuitId = String;
 type NodeId = usize;
 type SwitchId = usize;
 
+impl From<BuilderSwitch> for Switch {
+    fn from(bs: BuilderSwitch) -> Switch {
+        Switch {
+            pole: bs.pole,
+            no: bs.no,
+            nc: bs.nc,
+        }
+    }
+}
+
+
+
 impl CBuilder {
 
     /// Create a new CBuilder with only the G node
@@ -134,24 +146,8 @@ impl CBuilder {
         ret
     }
 
-    // TODO: change to From/Into
-    fn finalize_switch(bs: BuilderSwitch) -> Switch {
-        Switch {
-            pole: bs.pole,
-            no: bs.no,
-            nc: bs.nc,
-        }
-    }
-
-    // TODO: change to From/Into
-    fn finalize_coil(switches_by_name: &HashMap<String, Vec<SwitchId>>, bc: BuilderCoil) -> Coil {
-        let maybe_switches = switches_by_name.get(&bc.name[..bc.name.find('^').unwrap_or(bc.name.len())].to_lowercase());
-        if let Some(switches) = maybe_switches {
-            Coil { switches: switches.clone() }
-        } else {
-            warn!("Coil {} is not connected to any switches", bc.name);
-            Coil { switches: Vec::new() }
-        }
+    pub fn coil_to_switch_name(coil_name: &str) -> String {
+        coil_name[..coil_name.find('^').unwrap_or(coil_name.len())].to_lowercase()
     }
 
     /// Call after adding all components
@@ -177,7 +173,7 @@ impl CBuilder {
                 switches_by_name.insert(switch.name.clone(), Vec::new());
             }
             switches_by_name.get_mut(&switch.name).unwrap().push(id);
-            c.switches.push(CBuilder::finalize_switch(switch));
+            c.switches.push(Switch::from(switch));
         }
         c.switch_positions = vec![false; num_switches];
         c.next_switch_positions = vec![false; num_switches];
@@ -188,7 +184,15 @@ impl CBuilder {
             c.coils.push(Vec::new());
         }
         for coil in self.coils {
-            c.coils[coil.pos].push(CBuilder::finalize_coil(&switches_by_name, coil));
+            let switches = switches_by_name
+                .get(&CBuilder::coil_to_switch_name(&coil.name))
+                .map_or_else(Vec::new, Vec::clone);
+
+            if switches.is_empty() {
+                warn!("Coil {} is not connected to any switches", coil.name);
+            }
+
+            c.coils[coil.pos].push(Coil { switches });
         }
         c.public_nodes = self.public_nodes;
         c
