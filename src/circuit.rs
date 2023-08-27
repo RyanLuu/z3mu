@@ -29,7 +29,7 @@ impl Circuit {
         self.add_subcircuit(name, sc);
     }
 
-    pub fn add_subcircuit(&mut self, name: &str, subcircuit: Subcircuit) {
+    fn add_subcircuit(&mut self, name: &str, subcircuit: Subcircuit) {
         for (_, node_names) in subcircuit.public_nodes.iter() {
             for node_name in node_names {
                 if !self.node_rl.contains_key(node_name) {
@@ -155,7 +155,7 @@ impl CBuilder {
     }
 
     /// Call after adding all components
-    pub fn finalize(self) -> Subcircuit {
+    fn finalize(self) -> Subcircuit {
         let mut c = Subcircuit::default();
 
         // initialize nodes
@@ -210,7 +210,7 @@ impl CBuilder {
         }
     }
 
-    pub fn expose_node<T: Into<String>>(&mut self, name: T) {
+    fn expose_node<T: Into<String>>(&mut self, name: T) {
         let name_string = name.into();
         let node_id = self.node_aliases[&name_string];
         self.public_nodes.entry(node_id).or_insert_with(Vec::new).push(name_string);
