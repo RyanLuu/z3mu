@@ -7,7 +7,8 @@ fn main() {
     let mut c = Circuit::new();
 
     // Figure 4
-    c.build_subcircuit("Additionswerk", |builder| {
+    // Adds mantissas Ba and Bb and stores the sum in Be
+    c.build_subcircuit("Additionswerk (Teil B für Mantisse)", |builder| {
         let mut interface = Interface::new(&["a60", "b60", "b61", "Br"]);
         for i in -16..=2 {
             let coil_name = format!("Ba{}", i);
@@ -57,6 +58,39 @@ fn main() {
         }
         interface
     });
+
+    // Figure 5
+    // Copies Af into Aa upon activating Ea
+    c.build_subcircuit("Kontakte der E-Relais", |builder| {
+        let v = builder.node(Named("V"));
+        for i in (0..=6).rev() {
+            let [_, af_no, _] = builder.add_switch(format!("af{}", i), [Wire(v), New, New]);
+            let [_, ea_no, _] = builder.add_switch("ea", [Wire(af_no), New, New]);
+            builder.add_coil(format!("Aa{}", i), Wire(ea_no));
+        }
+        builder.add_coil("Ea", New);
+        Interface::new(&["Ea"])
+    });
+
+    // Figure 6
+    // Shifts input into Ba by -2Fp + Fq bits
+    c.build_subcircuit("Kontakte der Relais Fp, Fq", |builder| {
+        let mut interface = Interface::new(&[]);
+        let (_, left2, prev_coil) = CBuilder::chain((New, New, New), (-16..=1).rev(), |(left1, left2, prev_coil), i| {
+            let input_name = if i == 0 { "0".into() } else { format!("{:+}", i) };
+            let input = builder.node(Named(&input_name));
+            interface.push(input_name);
+            let [_, fp_no, fp_nc] = builder.add_switch("fp", [Wire(input), New, left2]);
+            let [_, _, fq_nc] = builder.add_switch("fq", [Wire(fp_nc), prev_coil, New]);
+            let coil_name = format!("Ba{}", i);
+            let coil = builder.add_coil(&coil_name, Wire(fq_nc));
+            interface.push(coil_name);
+            (Wire(fp_no), left1, Wire(coil))
+        });
+        builder.add_switch("fq", [left2, prev_coil, New]);
+        interface
+    });
+
     c.step();
 }
 

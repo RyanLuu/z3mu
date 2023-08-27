@@ -52,7 +52,7 @@ impl Circuit {
             if !visited.insert(node_name.clone()) {
                 continue;
             }
-            println!("{:?} {}", self.node_rl, node_name);
+            debug!("{} {:#?}", node_name, self.node_rl);
             if let Some(subcircuits) = self.node_rl.get(&node_name) {
                 for scid in subcircuits {
                     let subcircuit = self.subcircuits.get_mut(scid).unwrap();
