@@ -202,13 +202,14 @@ impl CBuilder {
         assert_eq!(None, self.node_aliases.insert(String::from(name), n));
     }
 
-    pub fn expose_node(&mut self, name: &str) {
+    pub fn expose_node(&mut self, name: &str) -> NodeId {
         let node_id = if !self.node_aliases.contains_key(name) {
             self.add_named_node(name)
         } else {
             self.node_aliases[name]
         };
         self.public_nodes.entry(node_id).or_insert_with(Vec::new).push(String::from(name));
+        node_id
     }
 
     pub fn get_node(&mut self, spec: NodeSpec) -> NodeId {
@@ -267,6 +268,17 @@ impl CBuilder {
         self.coils.push(BuilderCoil { name: String::from(name), pos });
         pos
     }
+
+    pub fn chain<T, I, Idx, F>(init: T, iter: I, mut func: F) -> T where
+        I: Iterator<Item = Idx>,
+        F: FnMut(T, Idx) -> T
+    {
+        let mut curr = init;
+        for idx in iter {
+            curr = func(curr, idx);
+        }
+        curr
+    }
 }
 
 impl Subcircuit {
@@ -281,7 +293,6 @@ impl Subcircuit {
     ///
     /// * `node_name` - Alias for the node being pulled high
     pub fn update(&mut self, node_name: &str) -> Vec<String> {
-        println!("LBHA {}", node_name);
         let mut worklist = vec![self.name_to_node[node_name]];
         let visited = &mut self.node_states;
         
@@ -463,6 +474,43 @@ mod tests {
                     assert!(sc.is_low("step123"));
                 }
             }
+        }
+    }
+
+    #[test]
+    fn chain_alternating_relays() {
+        let mut cb = CBuilder::new();
+        let g = cb.get_node(Named("G"));
+        let [last_a, last_b] = CBuilder::chain([g, g], 0..5, |[left_a, left_b], i| {
+            cb.add_coil(&format!("Bb{}", i), Wire(left_a));
+            let right_a = cb.expose_node(&format!("a{}", i));
+            let right_b = cb.expose_node(&format!("b{}", i));
+            cb.add_switch(
+                &format!("aa{}", i),
+                [Wire(left_a), Wire(right_a), New]);
+            cb.add_switch(
+                &format!("bb{}", i),
+                [Wire(left_b), Wire(right_b), New]);
+            cb.add_coil(&format!("Aa{}", i), Wire(right_b));
+            [right_a, right_b]
+        });
+        assert_eq!(last_a, cb.get_node(Named("a4")));
+        assert_eq!(last_b, cb.get_node(Named("b4")));
+        let mut sc = cb.finalize();
+        let test = |sc: &Subcircuit, expected_a: usize, expected_b: usize| {
+            for i in 0..5 {
+                assert_eq!(sc.is_high(&format!("a{}", i)), i < expected_a);
+                assert_eq!(sc.is_high(&format!("b{}", i)), i < expected_b);
+            }
+        };
+
+        sc.step();
+        test(&sc, 0, 0);
+        for i in 0..5 {
+            sc.step();
+            test(&sc, i, i + 1);
+            sc.step();
+            test(&sc, i + 1, i + 1);
         }
     }
 

@@ -1,4 +1,4 @@
-use crate::circuit::{Circuit, NodeSpec::*};
+use crate::circuit::{Circuit, CBuilder, NodeSpec::*};
 
 pub mod circuit;
 
@@ -7,7 +7,9 @@ fn main() {
     let mut c = Circuit::new();
 
     // Figure 4
-    c.build_subcircuit("Additionswerk", vec!["a60", "b60"], |builder| {
+    // TODO: Figure out a good way to add Ba{} and Bb{} nodes to public nodes list
+    // TODO: Consider special handling for exposing step nodes (e.g. I_II_III)
+    c.build_subcircuit("Additionswerk", vec!["a60", "b60", "b61", "Br"], |builder| {
         for i in -16..=2 {
             builder.add_coil(&format!("Ba{}", i), New);
         }
@@ -25,21 +27,18 @@ fn main() {
         }
         let [br_pole, _, _] = builder.add_switch("br", [New, Named("a60"), New]);
         let [_, _, ba2_nc] = builder.add_switch("ba2", [Named("b61"), Named("II_III"), New]);
-        builder.add_coil("Br", New);
         let [_, b4, b3] = builder.add_switch("bs", [Named("II_III"), Named("b60"), New]);
-        for i in (-16..=1).rev() {
-            let bd = builder.add_coil(&format!("Bd{}", i), New);
+        CBuilder::chain(ba2_nc, (-16..=1).rev(), |left, i| {
+            let right = builder.add_coil(&format!("Bd{}", i), New);
             let bb_pole = builder.add_node();
-            let ba_pole = if i == 1 {
-                ba2_nc
-            } else {
-                builder.get_node(Named(&format!("Bd{}", i + 1)))
-            };
             builder.add_switch(&format!("bb{}", i), [Wire(bb_pole), Wire(b3), Wire(b4)]);
-            builder.add_switch(&format!("ba{}", i), [Wire(ba_pole), Wire(bb_pole), New]);
-            builder.add_switch(&format!("bc{}", i), [Wire(bd), Wire(ba_pole), New]);
-        }
+            builder.add_switch(&format!("ba{}", i), [Wire(left), Wire(bb_pole), New]);
+            builder.add_switch(&format!("bc{}", i), [Wire(right), Wire(left), New]);
+            right
+        });
         builder.add_switch("ba1", [Wire(br_pole), Named("II_III"), Named("Bd1")]);
+
+        builder.add_coil("Br", New);
 
         let s3 = builder.get_node(Named("III"));
         for i in (-16..=1).rev() {
