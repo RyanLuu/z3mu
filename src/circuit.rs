@@ -202,16 +202,16 @@ impl CBuilder {
         c
     }
 
-    fn name_node(&mut self, n: NodeId, name: &str) {
-        let prev = self.node_aliases.insert(String::from(name), n);
+    fn name_node(&mut self, n: NodeId, name: String) {
+        let prev = self.node_aliases.insert(name.clone(), n);
         assert_eq!(prev, None);
-        if CBuilder::is_public_by_default(name) {
+        if CBuilder::is_public_by_default(&name) {
             self.expose_node(name);
         }
     }
 
-    pub fn expose_node<T: ToString>(&mut self, name: T) {
-        let name_string = name.to_string();
+    pub fn expose_node<T: Into<String>>(&mut self, name: T) {
+        let name_string = name.into();
         let node_id = self.node_aliases[&name_string];
         self.public_nodes.entry(node_id).or_insert_with(Vec::new).push(name_string);
     }
@@ -224,9 +224,9 @@ impl CBuilder {
         }
     }
 
-    pub fn add_switch(&mut self, name: &str, loc: [NodeSpec; 3]) -> [NodeId; 3] {
+    pub fn add_switch<T: Into<String>>(&mut self, name: T, loc: [NodeSpec; 3]) -> [NodeId; 3] {
         let [pole, no, nc] = loc.map(|spec| self.node(spec));
-        self.switches.push(BuilderSwitch { name: String::from(name), pole, no, nc });
+        self.switches.push(BuilderSwitch { name: name.into(), pole, no, nc });
         [pole, no, nc]
     }
 
@@ -241,7 +241,7 @@ impl CBuilder {
             *node_id
         } else {
             let ret = self.add_node();
-            self.name_node(ret, name);
+            self.name_node(ret, name.to_string());
             ret
         }
     }
@@ -262,10 +262,11 @@ impl CBuilder {
     /// let n2 = cb.add_coil("Ba2", NodeSpec::Wire(n0));
     /// assert_eq!(n0, n2);
     /// ```
-    pub fn add_coil(&mut self, name: &str, pos: NodeSpec) -> NodeId {
+    pub fn add_coil<T: Into<String>>(&mut self, name: T, pos: NodeSpec) -> NodeId {
         let pos = self.node(pos);
-        self.name_node(pos, name);
-        self.coils.push(BuilderCoil { name: String::from(name), pos });
+        let name_string = name.into();
+        self.name_node(pos, name_string.clone());
+        self.coils.push(BuilderCoil { name: name_string, pos });
         pos
     }
 
@@ -438,8 +439,8 @@ mod tests {
         let mut cb = CBuilder::new();
         cb.add_coil("Init", Named("G"));
         for i in 1..=5 {
-            cb.add_coil(&format!("S{}", i), Named(&format!("step{}", i)));
-            cb.expose_node(&format!("step{}", i));
+            cb.add_coil(format!("S{}", i), Named(&format!("step{}", i)));
+            cb.expose_node(format!("step{}", i));
         }
         cb.add_switch("init", [Named("G"), New, Named("S1")]);
         cb.add_switch("s1", [Named("G"), Named("S2"), New]);
@@ -484,18 +485,18 @@ mod tests {
         let mut cb = CBuilder::new();
         let g = cb.node(Named("G"));
         let [last_a, last_b] = CBuilder::chain([g, g], 0..5, |[left_a, left_b], i| {
-            cb.add_coil(&format!("Bb{}", i), Wire(left_a));
+            cb.add_coil(format!("Bb{}", i), Wire(left_a));
             let right_a = cb.node(Named(&format!("a{}", i)));
             let right_b = cb.node(Named(&format!("b{}", i)));
             cb.expose_node(format!("a{}", i));
             cb.expose_node(format!("b{}", i));
             cb.add_switch(
-                &format!("aa{}", i),
+                format!("aa{}", i),
                 [Wire(left_a), Wire(right_a), New]);
             cb.add_switch(
-                &format!("bb{}", i),
+                format!("bb{}", i),
                 [Wire(left_b), Wire(right_b), New]);
-            cb.add_coil(&format!("Aa{}", i), Wire(right_b));
+            cb.add_coil(format!("Aa{}", i), Wire(right_b));
             [right_a, right_b]
         });
         assert_eq!(last_a, cb.node(Named("a4")));
@@ -545,14 +546,14 @@ pub struct Interface {
 }
 
 impl Interface {
-    pub fn new<T: ToString>(nodes: &[T]) -> Self {
+    pub fn new(nodes: &[&str]) -> Self {
         Interface {
-            nodes: nodes.into_iter().map(ToString::to_string).collect(),
+            nodes: nodes.iter().map(ToString::to_string).collect(),
         }
     }
 
-    pub fn push<T: ToString>(&mut self, node: T) {
-        self.nodes.push(node.to_string());
+    pub fn push<T: Into<String>>(&mut self, node: T) {
+        self.nodes.push(node.into());
     }
 }
 
