@@ -52,11 +52,15 @@ impl Circuit {
             if !visited.insert(node_name.clone()) {
                 continue;
             }
-            for scid in self.node_rl.get(&node_name).unwrap() {
-                let subcircuit = self.subcircuits.get_mut(scid).unwrap();
-                let nodes = subcircuit.update(&node_name);
-                println!("{} {} {:?}", scid, node_name, nodes);
-                worklist.extend(nodes);
+            println!("{:?} {}", self.node_rl, node_name);
+            if let Some(subcircuits) = self.node_rl.get(&node_name) {
+                for scid in subcircuits {
+                    let subcircuit = self.subcircuits.get_mut(scid).unwrap();
+                    let nodes = subcircuit.update(&node_name);
+                    worklist.extend(nodes);
+                }
+            } else {
+                warn!("Node {} is not connected to any subcircuits", node_name);
             }
         }
     }
@@ -135,15 +139,15 @@ impl From<BuilderSwitch> for Switch {
     }
 }
 
-
-
 impl CBuilder {
 
     /// Create a new CBuilder with only the G node
     pub fn new() -> Self {
-        let mut ret = CBuilder::default();
-        ret.expose_node("G");
-        ret
+        CBuilder::default()
+    }
+
+    fn is_public_by_default(node_name: &str) -> bool {
+        node_name.chars().all(|c| c.is_ascii_uppercase() || c == '_')
     }
 
     pub fn coil_to_switch_name(coil_name: &str) -> String {
@@ -199,20 +203,20 @@ impl CBuilder {
     }
 
     fn name_node(&mut self, n: NodeId, name: &str) {
-        assert_eq!(None, self.node_aliases.insert(String::from(name), n));
+        let prev = self.node_aliases.insert(String::from(name), n);
+        assert_eq!(prev, None);
+        if CBuilder::is_public_by_default(name) {
+            self.expose_node(name);
+        }
     }
 
     pub fn expose_node(&mut self, name: &str) -> NodeId {
-        let node_id = if !self.node_aliases.contains_key(name) {
-            self.add_named_node(name)
-        } else {
-            self.node_aliases[name]
-        };
+        let node_id = self.node(NodeSpec::Named(name));
         self.public_nodes.entry(node_id).or_insert_with(Vec::new).push(String::from(name));
         node_id
     }
 
-    pub fn get_node(&mut self, spec: NodeSpec) -> NodeId {
+    pub fn node(&mut self, spec: NodeSpec) -> NodeId {
         match spec {
             NodeSpec::Wire(node) => node,
             NodeSpec::New => self.add_node(),
@@ -221,12 +225,12 @@ impl CBuilder {
     }
 
     pub fn add_switch(&mut self, name: &str, loc: [NodeSpec; 3]) -> [NodeId; 3] {
-        let [pole, no, nc] = loc.map(|spec| self.get_node(spec));
+        let [pole, no, nc] = loc.map(|spec| self.node(spec));
         self.switches.push(BuilderSwitch { name: String::from(name), pole, no, nc });
         [pole, no, nc]
     }
 
-    pub fn add_node(&mut self) -> NodeId {
+    fn add_node(&mut self) -> NodeId {
         let ret = self.num_nodes;
         self.num_nodes += 1;
         ret
@@ -236,14 +240,10 @@ impl CBuilder {
         if let Some(node_id) = self.node_aliases.get(name) {
             *node_id
         } else {
-            self.add_named_node(name)
+            let ret = self.add_node();
+            self.name_node(ret, name);
+            ret
         }
-    }
-
-    fn add_named_node(&mut self, name: &str) -> NodeId {
-        let ret = self.add_node();
-        self.name_node(ret, name);
-        ret
     }
 
     /// Adds a coil to the circuit and adds an alias for its positive terminal
@@ -257,13 +257,13 @@ impl CBuilder {
     ///
     /// ```
     /// let cb = CBuilder::new();
-    /// let n0 = cb.add_node();
-    /// let n1 = cb.add_coil("Ba2", None);
-    /// let n2 = cb.add_coil("Ba2", n0);
+    /// let n0 = cb.node(NodeSpec::new);
+    /// let n1 = cb.add_coil("Ba2", NodeSpec::New);
+    /// let n2 = cb.add_coil("Ba2", NodeSpec::Wire(n0));
     /// assert_eq!(n0, n2);
     /// ```
     pub fn add_coil(&mut self, name: &str, pos: NodeSpec) -> NodeId {
-        let pos = self.get_node(pos);
+        let pos = self.node(pos);
         self.name_node(pos, name);
         self.coils.push(BuilderCoil { name: String::from(name), pos });
         pos
@@ -480,7 +480,7 @@ mod tests {
     #[test]
     fn chain_alternating_relays() {
         let mut cb = CBuilder::new();
-        let g = cb.get_node(Named("G"));
+        let g = cb.node(Named("G"));
         let [last_a, last_b] = CBuilder::chain([g, g], 0..5, |[left_a, left_b], i| {
             cb.add_coil(&format!("Bb{}", i), Wire(left_a));
             let right_a = cb.expose_node(&format!("a{}", i));
@@ -494,8 +494,8 @@ mod tests {
             cb.add_coil(&format!("Aa{}", i), Wire(right_b));
             [right_a, right_b]
         });
-        assert_eq!(last_a, cb.get_node(Named("a4")));
-        assert_eq!(last_b, cb.get_node(Named("b4")));
+        assert_eq!(last_a, cb.node(Named("a4")));
+        assert_eq!(last_b, cb.node(Named("b4")));
         let mut sc = cb.finalize();
         let test = |sc: &Subcircuit, expected_a: usize, expected_b: usize| {
             for i in 0..5 {
@@ -518,14 +518,12 @@ mod tests {
     fn basic_circuit() {
         let mut c = Circuit::new();
         c.build_subcircuit("A", vec!["shared"], |builder| {
-            builder.add_named_node("Aa0");
-            builder.expose_node("shared");
+            builder.node(Named("Aa0"));
         });
 
         c.build_subcircuit("B", vec!["shared"], |builder| {
-            builder.add_named_node("Ba0");
+            builder.node(Named("Ba0"));
             builder.add_switch("dummy", [Named("shared"), Named("G"), Named("G")]);
-            builder.expose_node("shared");
         });
 
         c.step();

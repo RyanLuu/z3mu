@@ -8,7 +8,6 @@ fn main() {
 
     // Figure 4
     // TODO: Figure out a good way to add Ba{} and Bb{} nodes to public nodes list
-    // TODO: Consider special handling for exposing step nodes (e.g. I_II_III)
     c.build_subcircuit("Additionswerk", vec!["a60", "b60", "b61", "Br"], |builder| {
         for i in -16..=2 {
             builder.add_coil(&format!("Ba{}", i), New);
@@ -30,7 +29,7 @@ fn main() {
         let [_, b4, b3] = builder.add_switch("bs", [Named("II_III"), Named("b60"), New]);
         CBuilder::chain(ba2_nc, (-16..=1).rev(), |left, i| {
             let right = builder.add_coil(&format!("Bd{}", i), New);
-            let bb_pole = builder.add_node();
+            let bb_pole = builder.node(New);
             builder.add_switch(&format!("bb{}", i), [Wire(bb_pole), Wire(b3), Wire(b4)]);
             builder.add_switch(&format!("ba{}", i), [Wire(left), Wire(bb_pole), New]);
             builder.add_switch(&format!("bc{}", i), [Wire(right), Wire(left), New]);
@@ -40,7 +39,7 @@ fn main() {
 
         builder.add_coil("Br", New);
 
-        let s3 = builder.get_node(Named("III"));
+        let s3 = builder.node(Named("III"));
         for i in (-16..=1).rev() {
             let be = builder.add_coil(&format!("Be{}", i), New);
             if i == 1 {
