@@ -6,6 +6,7 @@ use log::*;
 pub struct Circuit {
     subcircuits: HashMap<SubcircuitId, Subcircuit>,
     nodes: HashMap<Handle, PublicNode>,
+    set_nodes: Vec<Handle>,
 }
 
 #[derive(PartialEq, Eq, Hash, Debug, Clone)]
@@ -85,6 +86,14 @@ impl Circuit {
         Circuit::default()
     }
 
+    pub fn set(&mut self, handle: &Handle) {
+        if let Some(_) = self.nodes.get(handle) {
+            self.set_nodes.push(handle.clone());
+        } else {
+            warn!("Could not find node \"{}\" to inspect", handle);
+        }
+    }
+
     pub fn inspect(&self, handle: &Handle) {
         if let Some(public_node) = self.nodes.get(handle) {
             info!("{}: {}", handle, if public_node.state { 1 } else { 0 });
@@ -93,7 +102,7 @@ impl Circuit {
         }
     }
 
-    pub fn inspect_all(&self, name: &str) {
+    pub fn inspect_bus(&self, name: &str) {
         let mut states = Vec::<(i8, bool)>::new();
         for (handle, node) in &self.nodes {
             if handle.name == name {
@@ -125,6 +134,7 @@ impl Circuit {
         for (_, node_names) in subcircuit.public_nodes.iter() {
             for node_name in node_names {
                 if !self.nodes.contains_key(node_name) {
+                    println!("INSERT {}", node_name);
                     self.nodes.insert(node_name.clone(), PublicNode::default());
                 }
                 self.nodes.get_mut(node_name).unwrap().subcircuits.push(String::from(name));
@@ -144,9 +154,9 @@ impl Circuit {
             public_node.state = false;
         }
 
-        let mut worklist = vec![handle!("G")];
+        self.set_nodes.push(handle!("G"));
         let mut visited = HashSet::<Handle>::new();
-        while let Some(node_name) = worklist.pop() {
+        while let Some(node_name) = self.set_nodes.pop() {
             if !visited.insert(node_name.clone()) {
                 continue;
             }
@@ -155,7 +165,7 @@ impl Circuit {
                 for scid in &public_node.subcircuits {
                     let subcircuit = self.subcircuits.get_mut(scid).unwrap();
                     let nodes = subcircuit.update(&node_name);
-                    worklist.extend(nodes);
+                    self.set_nodes.extend(nodes);
                 }
             } else {
                 warn!("Node {} is not connected to any subcircuits", node_name);

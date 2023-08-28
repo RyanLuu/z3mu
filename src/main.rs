@@ -90,8 +90,57 @@ fn main() {
         interface
     });
 
+    // Figure 7
+    // Shifts input into Bb by -16Fh + 8Fi + 4Fk + 2Fl + Fm bits
+    c.build_subcircuit("Kontakte der Relais Fh, Fi, Fk, Fl, Fm", |builder| {
+        let mut interface = Interface::empty();
+        let fh_nodes: [_; 18] = (-16..=1).rev().map(|i| {
+            let input_name = if i == 0 { "0".into() } else { format!("{:+}", i) };
+            let input = builder.node(input_name.as_str());
+            interface.push(input_name);
+            input
+        }).collect::<Vec<_>>().try_into().unwrap();
+        let fi_nodes: [_; 33] = std::array::from_fn(|_| builder.node(New));
+        let fk_nodes: [_; 25] = std::array::from_fn(|_| builder.node(New));
+        let fl_nodes: [_; 21] = std::array::from_fn(|_| builder.node(New));
+        let fm_nodes: [_; 19] = std::array::from_fn(|_| builder.node(New));
+        let bb_nodes: [_; 18] = std::array::from_fn(|i| {
+            let coil_handle = handle!("Bb", 1 - i as i8);
+            interface.push(coil_handle.clone());
+            builder.add_coil(coil_handle, New)
+        });
+        for (i, node) in fh_nodes.into_iter().enumerate() {
+            let no = if i < 17 { fi_nodes[i + 16] } else { builder.node(New) };
+            builder.add_switch("fh", (node, no, fi_nodes[i]));
+        }
+        for (i, node) in fi_nodes.into_iter().enumerate() {
+            let no = if i >= 8 { fk_nodes[i - 8] } else { builder.node(New) };
+            let nc = if i < fk_nodes.len() { fk_nodes[i] } else { builder.node(New) };
+            builder.add_switch("fi", (node, no, nc));
+        }
+        for (i, node) in fk_nodes.into_iter().enumerate() {
+            let no = if i >= 4 { fl_nodes[i - 4] } else { builder.node(New) };
+            let nc = if i < fl_nodes.len() { fl_nodes[i] } else { builder.node(New) };
+            builder.add_switch("fk", (node, no, nc));
+        }
+        for (i, node) in fl_nodes.into_iter().enumerate() {
+            let no = if i >= 2 { fm_nodes[i - 2] } else { builder.node(New) };
+            let nc = if i < fm_nodes.len() { fm_nodes[i] } else { builder.node(New) };
+            builder.add_switch("fl", (node, no, nc));
+        }
+        for (i, node) in fm_nodes.into_iter().enumerate() {
+            let no = if i > 0 { bb_nodes[i - 1] } else { builder.node(New) };
+            let nc = if i < bb_nodes.len() { bb_nodes[i] } else { builder.node(New) };
+            builder.add_switch("fm", (node, no, nc));
+        }
+
+        interface
+    });
+
+    c.set(&handle!("+1"));
     c.step();
     c.inspect(&handle!("Br"));
-    c.inspect_all("Ba");
+    c.inspect_bus("Ba");
+    c.inspect_bus("Bb");
 }
 
