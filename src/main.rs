@@ -2,6 +2,7 @@ use crate::circuit::{Circuit, CBuilder, NodeSpec::*, Interface, Handle};
 
 #[macro_use]
 pub mod circuit;
+pub mod common;
 
 fn main() {
     env_logger::init();
@@ -60,16 +61,21 @@ fn main() {
 
     // Figure 5
     // Copies Af into Aa upon activating Ea
-    c.build_subcircuit("Kontakte der E-Relais", |builder| {
-        let s5 = builder.node("S5");
-        for i in (0..=6).rev() {
-            let (_, af_no, _) = builder.add_switch(handle!("af", i), (Wire(s5), New, New));
-            let (_, ea_no, _) = builder.add_switch("ea", (Wire(af_no), New, New));
-            builder.add_coil(handle!("Aa", i), Wire(ea_no));
-        }
-        builder.add_coil("Ea", New);
-        Interface::new(["Ea"])
-    });
+    c.build_subcircuit("Kontakte der E-Relais (Ea)", common::gate("Af", "Ea", "Aa", 0..=6));
+    c.build_subcircuit("Kontakte der E-Relais (Eb)", common::gate("Af", "Ea", "Ab", 0..=6));
+    // TODO: shifted gate Ee
+    c.build_subcircuit("Kontakte der E-Relais (Ec)", common::gate("Ae", "Ec", "Aa", 0..=7));
+    c.build_subcircuit("Kontakte der E-Relais (Ed)", common::gate("Ae", "Ed", "Ab", 0..=7));
+    // TODO: wire Fa into Fpq shifter
+    // TODO: wire Fb into Fhiklm shifter
+    // TODO: wire Fc into Fpq shifter
+    // TODO: wire Fd into Fhiklm shifter
+    c.build_subcircuit("Kontakte der E-Relais (Ff)", common::gate("Be", "Ff", "Bf", -16..=0));
+    // TODO: shifted gate Be'_1
+    // TODO: read input into Ba using Zabcd
+    // TODO: load constant -4 into Ab using Ei
+    // TODO: load constant +3 into Ab using Eh
+    // TODO: load constant +13 into Aa using Eg
 
     // Figure 6
     // Shifts input into Ba by -2Fp + Fq bits

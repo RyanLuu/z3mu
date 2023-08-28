@@ -134,7 +134,6 @@ impl Circuit {
         for (_, node_names) in subcircuit.public_nodes.iter() {
             for node_name in node_names {
                 if !self.nodes.contains_key(node_name) {
-                    println!("INSERT {}", node_name);
                     self.nodes.insert(node_name.clone(), PublicNode::default());
                 }
                 self.nodes.get_mut(node_name).unwrap().subcircuits.push(String::from(name));
