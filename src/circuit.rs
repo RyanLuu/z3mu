@@ -58,7 +58,10 @@ impl std::fmt::Display for Handle {
 
 impl Handle {
     pub fn new<T: Into<String>>(name: T, index: Option<i8>, sup: Option<u8>) -> Self {
-        Handle { name: name.into(), index, sup }
+        let name = name.into();
+        assert!(!name.contains('_'));
+        assert!(!name.contains('^'));
+        Handle { name, index, sup }
     }
 }
 
@@ -90,7 +93,7 @@ impl Circuit {
         if let Some(_) = self.nodes.get(handle) {
             self.set_nodes.push(handle.clone());
         } else {
-            warn!("Could not find node \"{}\" to inspect", handle);
+            warn!("Could not find node \"{}\" to set", handle);
         }
     }
 
@@ -153,6 +156,10 @@ impl Circuit {
             public_node.state = false;
         }
 
+        for (_, sc) in &mut self.subcircuits {
+            sc.start_step();
+        }
+
         self.set_nodes.push(handle!("G"));
         let mut visited = HashSet::<Handle>::new();
         while let Some(node_name) = self.set_nodes.pop() {
@@ -169,6 +176,10 @@ impl Circuit {
             } else {
                 warn!("Node {} is not connected to any subcircuits", node_name);
             }
+        }
+
+        for (_, sc) in &mut self.subcircuits {
+            sc.end_step();
         }
     }
 }
@@ -272,9 +283,18 @@ impl CBuilder {
     }
 
     fn is_public_by_default(handle: &Handle) -> bool {
-        handle.name.chars().all(|c| c.is_ascii_uppercase() || c == '_')
-            && handle.index.is_none()
-            && handle.sup.is_none()
+        const PUBLIC_LIST: &[&str] = &[
+            "G", // positive voltage rail
+            "S", // step nodes (e.g. "I II III")
+            // registers of interest
+            "Aa", // exponent summand
+            "Ab", // exponent summand
+            "Ae", // exponent sum
+            "Ba", // mantissa summand
+            "Bb", // mantissa summand
+            "Be", // mantissa sum
+        ];
+        PUBLIC_LIST.contains(&handle.name.as_str())
     }
 
     pub fn coil_to_switch_name(coil_handle: &Handle) -> Handle {

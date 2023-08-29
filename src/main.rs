@@ -73,9 +73,9 @@ fn main() {
     c.build_subcircuit("Kontakte der E-Relais (Ff)", common::gate("Be", "Ff", "Bf", -16..=0));
     // TODO: shifted gate Be'_1
     // TODO: read input into Ba using Zabcd
-    // TODO: load constant -4 into Ab using Ei
-    // TODO: load constant +3 into Ab using Eh
-    // TODO: load constant +13 into Aa using Eg
+    c.build_subcircuit("Kontakte der E-Relais (Ei)", common::gate_const(-4i8, "Ei".into(), "Ab", 0..=7));
+    c.build_subcircuit("Kontakte der E-Relais (Eh)", common::gate_const( 3i8, "Eh".into(), "Ab", 0..=7));
+    c.build_subcircuit("Kontakte der E-Relais (Eg)", common::gate_const(13i8, "Eg".into(), "Aa", 0..=7));
 
     // Figure 6
     // Shifts input into Ba by -2Fp + Fq bits
@@ -143,10 +143,10 @@ fn main() {
         interface
     });
 
-    c.set(&handle!("+1"));
+    c.set(&handle!("Ei"));
     c.step();
-    c.inspect(&handle!("Br"));
-    c.inspect_bus("Ba");
-    c.inspect_bus("Bb");
+    c.set(&handle!("S", 5));
+    c.step();
+    c.inspect_bus("Ab");
 }
 
