@@ -1,8 +1,8 @@
 use std::collections::{HashMap, HashSet};
 use log::*;
 
-use handle::Handle;
-use subcircuit::{Subcircuit, CBuilder};
+pub use handle::Handle;
+pub use subcircuit::{Subcircuit, CBuilder, NodeSpec};
 
 #[macro_use]
 pub mod handle;
