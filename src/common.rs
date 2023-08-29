@@ -1,4 +1,4 @@
-use super::circuit::{CBuilder, Interface, NodeSpec::*, Handle};
+use super::circuit::{subcircuit::CBuilder, Interface, subcircuit::NodeSpec::*, handle::Handle};
 
 pub fn gate<'a, I: Iterator<Item = i8> + 'a>(from: &'a str, gate: &'a str, to: &'a str, indices: I) -> impl FnOnce(&mut CBuilder) -> Interface + 'a {
     move |builder: &mut CBuilder| {

@@ -1,4 +1,4 @@
-use crate::circuit::{Circuit, CBuilder, NodeSpec::*, Interface, Handle};
+use crate::circuit::{Circuit, subcircuit::CBuilder, subcircuit::NodeSpec::*, Interface, handle::Handle};
 
 #[macro_use]
 pub mod circuit;
