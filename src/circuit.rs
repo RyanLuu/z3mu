@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 use log::*;
 
-pub use handle::Handle;
+pub use handle::{Bus, Handle};
 pub use subcircuit::{Subcircuit, CBuilder, NodeSpec};
 
 #[macro_use]
@@ -42,19 +42,6 @@ impl From<String> for Handle {
     }
 }
 
-impl std::fmt::Display for Handle {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.name)?;
-        if let Some(index) = self.index {
-            write!(f, "_{}", index)?;
-        }
-        if let Some(sup) = self.sup {
-            write!(f, "^{}", sup)?;
-        }
-        Ok(())
-    }
-}
-
 #[derive(Default, Debug)]
 struct PublicNode {
     state: bool,
@@ -85,20 +72,28 @@ impl Circuit {
         }
     }
 
-    pub fn inspect_bus(&self, name: &str) {
+    pub fn inspect_bus(&self, bus: &Bus) -> i32 {
+        let mut ret = 0i32;
         let mut states = Vec::<(i8, bool)>::new();
         for (handle, node) in &self.nodes {
-            if handle.name == name {
+            if handle.name == bus.name && handle.sup == bus.sup {
                 states.push((handle.index.expect("inspect_all called on a node with no index"), node.state));
+                if node.state {
+                    ret |= 1 << handle.index.unwrap();
+                }
             }
         }
         assert!(!states.is_empty());
         states.sort_by_key(|s| -s.0);
+        let max_index = states[0].0;
+        let min_index = states[states.len() - 1].0;
+        ret = (ret << (32 - max_index - 1)) >> (32 - max_index - 1);
         info!("{}[{}:{}]: {}",
-              name,
-              states[0].0,
-              states[states.len()-1].0,
+              bus,
+              max_index,
+              min_index,
               states.iter().map(|(_, state)| if *state { '1' } else { '0' }).collect::<String>());
+        ret
     }
 
     pub fn build_subcircuit<F>(&mut self, name: &str, build: F) where
@@ -177,6 +172,29 @@ type SubcircuitId = String;
 type NodeId = usize;
 type SwitchId = usize;
 
+pub struct Interface {
+    nodes: Vec<Handle>,
+}
+
+impl Interface {
+    pub fn new<const N: usize>(nodes: [impl Into<Handle>; N]) -> Self {
+        Interface {
+            nodes: nodes.into_iter().map(Into::into).collect(),
+        }
+    }
+
+    pub fn empty() -> Self {
+        Interface {
+            nodes: Vec::new()
+        }
+    }
+
+    pub fn push(&mut self, node: impl Into<Handle>) {
+        self.nodes.push(node.into());
+    }
+}
+
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -197,28 +215,6 @@ mod tests {
 
         c.step();
         assert!(c.inspect(&handle!("shared")));
-    }
-}
-
-pub struct Interface {
-    nodes: Vec<Handle>,
-}
-
-impl Interface {
-    pub fn new<const N: usize>(nodes: [impl Into<Handle>; N]) -> Self {
-        Interface {
-            nodes: nodes.into_iter().map(Into::into).collect(),
-        }
-    }
-
-    pub fn empty() -> Self {
-        Interface {
-            nodes: Vec::new()
-        }
-    }
-
-    pub fn push(&mut self, node: impl Into<Handle>) {
-        self.nodes.push(node.into());
     }
 }
 

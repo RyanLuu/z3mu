@@ -28,3 +28,26 @@ pub fn gate_const<'a, I: Iterator<Item = i8> + 'a>(k: i8, gate: Handle, to: &'a 
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::Circuit;
+    use crate::circuit::Bus;
+
+    #[test]
+    fn gate_const_test() {
+        let mut c = Circuit::new();
+        c.build_subcircuit("A", gate_const(-123i8, handle!("Ga"), "Aa", 0..=7));
+
+        c.set(&handle!("S", 5));
+        c.step();
+        assert_eq!(c.inspect_bus(&bus!("Aa")), 0);
+
+        c.set(&handle!("Ga"));
+        c.step();
+        c.set(&handle!("S", 5));
+        c.step();
+        assert_eq!(c.inspect_bus(&bus!("Aa")), -123);
+    }
+}
+

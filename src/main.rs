@@ -1,4 +1,4 @@
-use crate::circuit::{Circuit, CBuilder, NodeSpec::*, Interface, Handle};
+use crate::circuit::{Circuit, CBuilder, NodeSpec::*, Interface, Handle, Bus};
 
 #[macro_use]
 pub mod circuit;
@@ -147,6 +147,6 @@ fn main() {
     c.step();
     c.set(&handle!("S", 5));
     c.step();
-    c.inspect_bus("Ab");
+    c.inspect_bus(&bus!("Ab"));
 }
 

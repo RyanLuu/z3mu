@@ -47,12 +47,12 @@ struct BuilderCoil {
 /// Specifies how to treat a node introduced to the circuit by a new component
 ///
 /// * `Wire(node_id)` - Connect to the existing node identified by `node_id`
-/// * `New` - Create a new node in the circuit that is connected to nothing else
 /// * `Named(name)` - Create a new node named `name` or connect to it if it already exists
+/// * `New` - Create a new node in the circuit that is not yet connected to anything else
 pub enum NodeSpec {
     Wire(NodeId),
-    New,
     Named(Handle),
+    New,
 }
 
 impl From<()> for NodeSpec {
@@ -72,7 +72,6 @@ impl From<NodeId> for NodeSpec {
         NodeSpec::Wire(id)
     }
 }
-
 
 impl CBuilder {
 
@@ -164,8 +163,8 @@ impl CBuilder {
     pub fn node(&mut self, spec: impl Into<NodeSpec>) -> NodeId {
         match spec.into() {
             NodeSpec::Wire(node) => node,
-            NodeSpec::New => self.add_node(),
             NodeSpec::Named(name) => self.named_node(name),
+            NodeSpec::New => self.add_node(),
         }
     }
 
