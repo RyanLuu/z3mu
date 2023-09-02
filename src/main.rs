@@ -61,21 +61,21 @@ fn main() {
 
     // Figure 5
     // Copies Af into Aa upon activating Ea
-    c.build_subcircuit("Kontakte der E-Relais (Ea)", common::gate("Af", "Ea", "Aa", 0..=6));
-    c.build_subcircuit("Kontakte der E-Relais (Eb)", common::gate("Af", "Ea", "Ab", 0..=6));
+    c.build_subcircuit("Kontakte der E-Relais (Ea)", common::gate(bus!("Af"), handle!("Ea"), bus!("Aa"), 0..=6));
+    c.build_subcircuit("Kontakte der E-Relais (Eb)", common::gate(bus!("Af"), handle!("Ea"), bus!("Ab"), 0..=6));
     // TODO: shifted gate Ee
-    c.build_subcircuit("Kontakte der E-Relais (Ec)", common::gate("Ae", "Ec", "Aa", 0..=7));
-    c.build_subcircuit("Kontakte der E-Relais (Ed)", common::gate("Ae", "Ed", "Ab", 0..=7));
+    c.build_subcircuit("Kontakte der E-Relais (Ec)", common::gate(bus!("Ae"), handle!("Ec"), bus!("Aa"), 0..=7));
+    c.build_subcircuit("Kontakte der E-Relais (Ed)", common::gate(bus!("Ae"), handle!("Ed"), bus!("Ab"), 0..=7));
     // TODO: wire Fa into Fpq shifter
     // TODO: wire Fb into Fhiklm shifter
     // TODO: wire Fc into Fpq shifter
     // TODO: wire Fd into Fhiklm shifter
-    c.build_subcircuit("Kontakte der E-Relais (Ff)", common::gate("Be", "Ff", "Bf", -16..=0));
+    c.build_subcircuit("Kontakte der E-Relais (Ff)", common::gate(bus!("Be"), handle!("Ff"), bus!("Bf"), -16..=0));
     // TODO: shifted gate Be'_1
     // TODO: read input into Ba using Zabcd
-    c.build_subcircuit("Kontakte der E-Relais (Ei)", common::gate_const(-4i8, "Ei".into(), "Ab", 0..=7));
-    c.build_subcircuit("Kontakte der E-Relais (Eh)", common::gate_const( 3i8, "Eh".into(), "Ab", 0..=7));
-    c.build_subcircuit("Kontakte der E-Relais (Eg)", common::gate_const(13i8, "Eg".into(), "Aa", 0..=7));
+    c.build_subcircuit("Kontakte der E-Relais (Ei)", common::gate_const(-4i8, handle!("Ei"), bus!("Ab"), 0..=7));
+    c.build_subcircuit("Kontakte der E-Relais (Eh)", common::gate_const( 3i8, handle!("Eh"), bus!("Ab"), 0..=7));
+    c.build_subcircuit("Kontakte der E-Relais (Eg)", common::gate_const(13i8, handle!("Eg"), bus!("Aa"), 0..=7));
 
     // Figure 6
     // Shifts input into Ba by -2Fp + Fq bits

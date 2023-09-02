@@ -15,38 +15,30 @@ pub struct Circuit {
     set_nodes: Vec<Handle>,
 }
 
-impl From<&str> for Handle {
-    fn from(s: &str) -> Handle {
-        let mut rem: &str = s;
-        let sup = rem.find('^').map(|i| {
-            let sup = rem[i+1..].parse().unwrap();
-            rem = &rem[..i];
-            sup
-        });
-        let index = rem.find('_').map(|i| {
-            let index = rem[i+1..].parse().expect(&format!("Failed to parse handle {}", s));
-            rem = &rem[..i];
-            index
-        });
-        Handle {
-            name: rem.into(),
-            index,
-            sup,
-        }
-    }
-}
-
-impl From<String> for Handle {
-    fn from(s: String) -> Handle {
-        Handle::from(s.as_str())
-    }
-}
-
 #[derive(Default, Debug)]
 struct PublicNode {
     state: bool,
     subcircuits: Vec<SubcircuitId>,
 }
+
+struct Coil {
+    switches: Vec<SwitchId>,
+}
+
+struct Switch {
+    pole: NodeId,
+    no: NodeId,
+    nc: NodeId,
+}
+
+type SubcircuitId = String;
+type NodeId = usize;
+type SwitchId = usize;
+
+pub struct Interface {
+    nodes: Vec<Handle>,
+}
+
 
 /// Simulates a collection of subcircuits
 impl Circuit {
@@ -59,6 +51,21 @@ impl Circuit {
             self.set_nodes.push(handle.clone());
         } else {
             warn!("Could not find node \"{}\" to set", handle);
+        }
+    }
+
+    pub fn set_bus(&mut self, bus: &Bus, k: i32) {
+        let mut max_index = 0i8;
+        let mut min_index = 31i8;
+        for (handle, _) in &self.nodes {
+            if handle.name == bus.name && handle.sup == bus.sup {
+                let index = handle.index.expect("inspect_all called on a node with no index");
+                if (k >> index) & 1 != 0 {
+                    self.set_nodes.push(handle.clone());
+                }
+                max_index = std::cmp::max(max_index, index);
+                min_index = std::cmp::min(min_index, index);
+            }
         }
     }
 
@@ -157,23 +164,6 @@ impl Circuit {
             sc.end_step();
         }
     }
-}
-struct Coil {
-    switches: Vec<SwitchId>,
-}
-
-struct Switch {
-    pole: NodeId,
-    no: NodeId,
-    nc: NodeId,
-}
-
-type SubcircuitId = String;
-type NodeId = usize;
-type SwitchId = usize;
-
-pub struct Interface {
-    nodes: Vec<Handle>,
 }
 
 impl Interface {
