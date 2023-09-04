@@ -2,11 +2,11 @@ use super::circuit::{Handle, Bus, SubcircuitBuilder, CircuitBuilder};
 
 pub fn gate<'a, I: Iterator<Item = i8> + 'a>(from: Bus, gate: Handle, to: Bus, indices: I) -> impl FnOnce(SubcircuitBuilder) {
     move |mut builder: SubcircuitBuilder| {
-        builder.add_coil(gate.clone(), None);
+        builder.coil(gate.clone(), None);
         let s5 = builder.label("S_5");
         for index in indices {
             let (_, from_no, _) = builder.add_switch(CircuitBuilder::coil_to_switch_name(&from.index(index)), (s5, None, None));
-            let coil_node = builder.add_coil(to.index(index), None);
+            let coil_node = builder.coil(to.index(index), None);
             builder.add_switch(CircuitBuilder::coil_to_switch_name(&gate), (from_no, coil_node, None));
         }
     }
@@ -14,12 +14,12 @@ pub fn gate<'a, I: Iterator<Item = i8> + 'a>(from: Bus, gate: Handle, to: Bus, i
 
 pub fn gate_const<'a, I: Iterator<Item = i8> + 'a>(k: i8, gate: Handle, to: Bus, indices: I) -> impl FnOnce(SubcircuitBuilder) {
     move |mut builder: SubcircuitBuilder| {
-        builder.add_coil(gate.clone(), None);
+        builder.coil(gate.clone(), None);
         let s5 = builder.label("S_5");
         for index in indices {
             assert!(index >= 0 && index < (std::mem::size_of_val(&k) * 8) as i8);
             if (k >> index) & 1 != 0 {
-                let coil_node = builder.add_coil(to.index(index), None);
+                let coil_node = builder.coil(to.index(index), None);
                 builder.add_switch(CircuitBuilder::coil_to_switch_name(&gate), (s5, coil_node, None));
             }
         }
@@ -37,7 +37,7 @@ mod tests {
             .add_subcircuit(gate(bus!("Ab"), handle!("Ga"), bus!("Aa"), 0..=7))
             .add_subcircuit(|mut scb| {
                 for i in 0..=7 {
-                    let ab = scb.add_coil(handle!("Ab", i), None);
+                    let ab = scb.coil(handle!("Ab", i), None);
                     let aa = scb.label(handle!("Aa", i));
                     scb.trace_all([ab, aa]);
                 }

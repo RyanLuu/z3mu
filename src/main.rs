@@ -11,17 +11,17 @@ fn main() {
     // Adds mantissas Ba and Bb and stores the sum in Be
     let figure4 = |mut scb: SubcircuitBuilder| {
         for coil_handle in (-16..=2).map(|i| handle!("Ba", i)) {
-            scb.add_coil(coil_handle.clone(), None);
+            scb.coil(coil_handle.clone(), None);
         }
         for coil_handle in (-16..=1).map(|i| handle!("Bb", i, 1)) {
-            scb.add_coil(coil_handle.clone(), None);
+            scb.coil(coil_handle.clone(), None);
         }
 
         let s123 = scb.label(handle!("S", 123));
         let (_, b2, b1) = scb.add_switch("bs", (s123, None, None));
-        scb.add_coil("Bs", None);
+        scb.coil("Bs", None);
         for i in (-16..=1).rev() {
-            let bc = scb.add_coil(handle!("Bc", i), None);
+            let bc = scb.coil(handle!("Bc", i), None);
             let (_, ba_no, ba_nc) = scb.add_switch(handle!("ba", i), (bc, None, None));
             scb.add_switch(handle!("bb", i), (b1, ba_nc, ba_no));
             scb.add_switch(handle!("bb", i), (b2, ba_no, ba_nc));
@@ -34,7 +34,7 @@ fn main() {
         let (_, _, ba2_nc) = scb.add_switch("ba_2", (b61, s23, None));
         let (_, b4, b3) = scb.add_switch("bs", (s23, b60, None));
         SubcircuitBuilder::chain(ba2_nc, (-16..=1).rev(), |left, i| {
-            let right = scb.add_coil(format!("Bd{}", i), None);
+            let right = scb.coil(format!("Bd{}", i), None);
             let bb_pole = scb.node(None);
             scb.add_switch(handle!("bb", i), (bb_pole, b3, b4));
             scb.add_switch(handle!("ba", i), (left, bb_pole, None));
@@ -44,13 +44,13 @@ fn main() {
         let bd1 = scb.label(handle!("Bd", 1));
         scb.add_switch("ba_1", (br_pole, s23, bd1));
 
-        scb.add_coil("Br", None);
+        scb.coil("Br", None);
 
         let s3 = scb.label(handle!("S", 3));
         for i in (-16..=1).rev() {
-            let be = scb.add_coil(handle!("Be", i), None);
+            let be = scb.coil(handle!("Be", i), None);
             if i == 1 {
-                let be1p = scb.add_coil("Be'_1", None);
+                let be1p = scb.coil("Be'_1", None);
                 scb.add_switch("br", (be, be1p, None));
             }
             let (_, bt_no, bt_nc) = scb.add_switch("bt", (be, None, None));
@@ -85,7 +85,7 @@ fn main() {
             let input_name = if i == 0 { "0".into() } else { format!("{:+}", i) };
             let input = scb.label(input_name.as_str());
             let (_, fp_no, fp_nc) = scb.add_switch("fp", (input, None, left2));
-            let coil = scb.add_coil(handle!("Ba", i), None);
+            let coil = scb.coil(handle!("Ba", i), None);
             scb.add_switch("fq", (fp_nc, prev_coil, coil));
             (Some(fp_no), left1, Some(coil))
         });
@@ -106,7 +106,7 @@ fn main() {
         let fm_nodes: [_; 19] = std::array::from_fn(|_| scb.node(None));
         let bb_nodes: [_; 18] = std::array::from_fn(|i| {
             let coil_handle = handle!("Bb", 1 - i as i8);
-            scb.add_coil(coil_handle, None)
+            scb.coil(coil_handle, None)
         });
         for (i, node) in fh_nodes.into_iter().enumerate() {
             let no = if i < 17 { fi_nodes[i + 16] } else { scb.node(None) };

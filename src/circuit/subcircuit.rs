@@ -152,11 +152,11 @@ impl<'a> SubcircuitBuilder<'a> {
     /// ```
     /// let cb = CircuitBuilder::new();
     /// let n0 = cb.node(NodeSpec::new);
-    /// let n1 = cb.add_coil("Ba2", NodeSpec::None);
-    /// let n2 = cb.add_coil("Ba2", NodeSpec::Some(n0));
+    /// let n1 = cb.coil("Ba2", NodeSpec::None);
+    /// let n2 = cb.coil("Ba2", NodeSpec::Some(n0));
     /// assert_eq!(n0, n2);
     /// ```
-    pub fn add_coil(&mut self, handle: impl Into<Handle>, pos: impl Into<Option<NodeId>>) -> NodeId {
+    pub fn coil(&mut self, handle: impl Into<Handle>, pos: impl Into<Option<NodeId>>) -> NodeId {
         let handle = handle.into();
         if self.cb.labels.contains_key(&handle) {
             assert_eq!(pos.into(), None);
@@ -279,7 +279,7 @@ mod tests {
         let (mut no, mut nc) = (0usize, 0usize);
         let mut c = CircuitBuilder::new().add_subcircuit(|mut scb| {
             let g = scb.label("G");
-            scb.add_coil(handle!("Ab", 0), g);
+            scb.coil(handle!("Ab", 0), g);
             (_, no, nc) = scb.add_switch("ab_0", (g, None, None));
             scb.trace_all([no, nc]);
         }).finalize();
@@ -296,7 +296,7 @@ mod tests {
         let mut c = CircuitBuilder::new().add_subcircuit(|mut scb| {
             let g = scb.label("G");
             (_, _, coil_node) = scb.add_switch("xy_-10", (g, None, None));
-            scb.add_coil("Xy_-10", Some(coil_node));
+            scb.coil("Xy_-10", Some(coil_node));
             scb.trace(coil_node);
         }).finalize();
         c.step();
@@ -316,9 +316,9 @@ mod tests {
             let g = scb.label("G");
             step123 = scb.label("step123");
             scb.trace(step123);
-            scb.add_coil("Init", g);
+            scb.coil("Init", g);
             for i in 1..=5 {
-                step[i] = scb.add_coil(handle!("S", i as i8), None);
+                step[i] = scb.coil(handle!("S", i as i8), None);
                 scb.trace(step[i]);
             }
             scb.add_switch("init", (g, None, step[1]));
@@ -360,7 +360,7 @@ mod tests {
             .add_subcircuit(|mut scb| {
                 let g = scb.label("G");
                 let (last_a, last_b) = SubcircuitBuilder::chain((g, g), 0..5, |(left_a, left_b), i| {
-                    scb.add_coil(handle!("Bb", i), Some(left_a));
+                    scb.coil(handle!("Bb", i), Some(left_a));
                     let right_a = scb.label(handle!("a", i));
                     let right_b = scb.label(handle!("b", i));
                     scb.trace_all([right_a, right_b]);
@@ -370,7 +370,7 @@ mod tests {
                     scb.add_switch(
                         handle!("bb", i),
                         (Some(left_b), Some(right_b), None));
-                    scb.add_coil(handle!("Aa", i), Some(right_b));
+                    scb.coil(handle!("Aa", i), Some(right_b));
                     (right_a, right_b)
                 });
                 assert_eq!(last_a, scb.label("a_4"));
